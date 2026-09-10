@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Number Hunt</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- Setup Screen -->
+    <div id="setupScreen" class="screen">
+        <div class="setup-card">
+            <h1>Number Hunt</h1>
+            <p>How many numbers?</p>
+
+            <div class="number-input">
+                <input
+                    type="number"
+                    id="maxNumber"
+                    min="10"
+                    max="1000"
+                    value="100"
+                >
+            </div>
+
+            <p class="max-hint" id="maxHint">Up to 1000 numbers</p>
+
+            <p class="level-label">Difficulty</p>
+
+            <div class="level-select" id="levelSelect">
+                <button type="button" class="level-btn active" data-level="medium">Medium</button>
+                <button type="button" class="level-btn" data-level="hard">Hard</button>
+            </div>
+
+            <button id="startBtn">Start</button>
+        </div>
+    </div>
+
+
+    <!-- Game Screen -->
+    <div id="gameScreen" class="game-screen hidden">
+
+        <div class="top-bar">
+            <div>
+                <span class="label">FIND</span>
+                <strong id="targetNumber">1</strong>
+            </div>
+
+            <div class="top-bar-right">
+
+                <div class="stats">
+                    <span id="foundCount">0</span>
+                    /
+                    <span id="totalCount">100</span>
+                </div>
+
+                <button id="muteBtn" class="mute-btn" aria-label="Mute sound" type="button">🔊</button>
+
+            </div>
+        </div>
+
+
+        <div class="book">
+
+            <div class="page left-page" id="leftPage"></div>
+
+            <div class="book-spine"></div>
+
+            <div class="page right-page" id="rightPage"></div>
+
+        </div>
+
+    </div>
+
+    <canvas id="confettiCanvas"></canvas>
+
+    <script src="script.js"></script>
+</body>
+</html>
