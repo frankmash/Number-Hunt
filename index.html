@@ -2,80 +2,112 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Number Hunt</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Number Hunt — Multiplayer</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-
 <body>
 
-    <!-- Setup Screen -->
-    <div id="setupScreen" class="screen">
+    <!-- ========== LOBBY ========== -->
+    <div id="lobbyScreen" class="screen">
         <div class="setup-card">
             <h1>Number Hunt</h1>
-            <p>How many numbers?</p>
+            <p class="subtitle">2-Player Race</p>
 
-            <div class="number-input">
-                <input
-                    type="number"
-                    id="maxNumber"
-                    min="10"
-                    max="1000"
-                    value="100"
-                >
+            <div class="name-input">
+                <input type="text" id="playerName" placeholder="Your name" maxlength="16" autocomplete="off">
             </div>
 
-            <p class="max-hint" id="maxHint">Up to 1000 numbers</p>
-
-            <p class="level-label">Difficulty</p>
-
-            <div class="level-select" id="levelSelect">
-                <button type="button" class="level-btn active" data-level="medium">Medium</button>
-                <button type="button" class="level-btn" data-level="hard">Hard</button>
+            <div class="lobby-actions">
+                <button id="createRoomBtn" class="primary-btn">Create Room</button>
+                <div class="or-divider">or</div>
+                <div class="join-row">
+                    <input type="text" id="roomCodeInput" placeholder="Room code" maxlength="6" autocomplete="off">
+                    <button id="joinRoomBtn" class="secondary-btn">Join</button>
+                </div>
             </div>
 
-            <button id="startBtn">Start</button>
+            <p class="hint" id="lobbyHint">Create a room and share the code with a friend</p>
         </div>
     </div>
 
+    <!-- ========== WAITING ROOM ========== -->
+    <div id="waitingScreen" class="screen hidden">
+        <div class="setup-card">
+            <h1>Room <span id="displayRoomCode"></span></h1>
+            <p class="waiting-status" id="waitingStatus">Waiting for opponent...</p>
 
-    <!-- Game Screen -->
+            <div class="players-list" id="playersList"></div>
+
+            <div id="hostControls" class="hidden">
+                <p class="level-label">Numbers</p>
+                <div class="number-input">
+                    <input type="number" id="maxNumber" min="10" max="400" value="50">
+                </div>
+                <p class="max-hint" id="maxHint">Up to 400 numbers</p>
+
+                <p class="level-label">Difficulty</p>
+                <div class="level-select" id="levelSelect">
+                    <button type="button" class="level-btn active" data-level="medium">Medium</button>
+                    <button type="button" class="level-btn" data-level="hard">Hard</button>
+                </div>
+
+                <button id="startGameBtn" class="primary-btn" disabled>Start Game</button>
+            </div>
+
+            <button id="leaveRoomBtn" class="text-btn">Leave Room</button>
+        </div>
+    </div>
+
+    <!-- ========== GAME ========== -->
     <div id="gameScreen" class="game-screen hidden">
-
         <div class="top-bar">
-            <div>
+            <div class="target-block">
                 <span class="label">FIND</span>
-                <strong id="targetNumber">1</strong>
+                <strong id="targetNumber">?</strong>
+            </div>
+
+            <div class="scores-block">
+                <div class="score-item" id="scoreP1">
+                    <span class="score-name" id="nameP1">P1</span>
+                    <span class="score-value" id="scoreValueP1">0</span>
+                </div>
+                <div class="score-divider">:</div>
+                <div class="score-item" id="scoreP2">
+                    <span class="score-name" id="nameP2">P2</span>
+                    <span class="score-value" id="scoreValueP2">0</span>
+                </div>
             </div>
 
             <div class="top-bar-right">
-
                 <div class="stats">
-                    <span id="foundCount">0</span>
-                    /
-                    <span id="totalCount">100</span>
+                    <span id="foundCount">0</span>/<span id="totalCount">0</span>
                 </div>
-
                 <button id="muteBtn" class="mute-btn" aria-label="Mute sound" type="button">🔊</button>
-
             </div>
         </div>
 
-
         <div class="book">
-
             <div class="page left-page" id="leftPage"></div>
-
             <div class="book-spine"></div>
-
             <div class="page right-page" id="rightPage"></div>
-
         </div>
+    </div>
 
+    <!-- ========== FINISHED ========== -->
+    <div id="finishedOverlay" class="finished hidden">
+        <div>
+            <h1 id="winnerTitle">Finished!</h1>
+            <p id="finalScores"></p>
+            <button id="playAgainBtn" class="primary-btn">Back to Lobby</button>
+        </div>
     </div>
 
     <canvas id="confettiCanvas"></canvas>
 
+    <!-- Load config first (local only), then the game -->
+    <script src="config.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
