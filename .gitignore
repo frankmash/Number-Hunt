@@ -10,3 +10,10 @@ Thumbs.db
 
 # Archives
 *.zip
+
+node_modules/
+.env
+.DS_Store
+*.log
+.idea/
+.vscode/

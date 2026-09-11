@@ -11,10 +11,6 @@ body {
     overflow: hidden;
 }
 
-/* =========================
-   SETUP / LOBBY
-========================= */
-
 .screen {
     width: 100vw;
     height: 100vh;
@@ -30,20 +26,11 @@ body {
     text-align: center;
     background: #eee1c4;
     border-radius: 8px;
-    box-shadow:
-        0 25px 70px rgba(0,0,0,0.5),
-        inset 0 0 30px rgba(80,50,20,0.08);
+    box-shadow: 0 25px 70px rgba(0,0,0,0.5), inset 0 0 30px rgba(80,50,20,0.08);
 }
 
-.setup-card h1 {
-    font-size: 42px;
-    margin-bottom: 12px;
-}
-
-.setup-card p {
-    font-size: 18px;
-    margin-bottom: 20px;
-}
+.setup-card h1 { font-size: 42px; margin-bottom: 12px; }
+.setup-card p { font-size: 18px; margin-bottom: 20px; }
 
 .subtitle {
     font-family: Arial, sans-serif;
@@ -68,9 +55,7 @@ body {
     font-family: Georgia, "Times New Roman", serif;
 }
 
-.lobby-actions {
-    margin-top: 18px;
-}
+.lobby-actions { margin-top: 18px; }
 
 .primary-btn {
     width: 100%;
@@ -84,15 +69,8 @@ body {
     cursor: pointer;
     font-family: Arial, sans-serif;
 }
-
-.primary-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-}
-
-.primary-btn:active:not(:disabled) {
-    transform: scale(0.98);
-}
+.primary-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.primary-btn:active:not(:disabled) { transform: scale(0.98); }
 
 .secondary-btn {
     padding: 12px 18px;
@@ -116,16 +94,8 @@ body {
     letter-spacing: 2px;
 }
 
-.join-row {
-    display: flex;
-    gap: 8px;
-}
-
-.join-row input {
-    flex: 1;
-    text-transform: uppercase;
-    letter-spacing: 3px;
-}
+.join-row { display: flex; gap: 8px; }
+.join-row input { flex: 1; text-transform: uppercase; letter-spacing: 3px; }
 
 .hint {
     font-family: Arial, sans-serif;
@@ -154,10 +124,7 @@ body {
     text-align: left;
 }
 
-.level-select {
-    display: flex;
-    gap: 10px;
-}
+.level-select { display: flex; gap: 10px; }
 
 .level-btn {
     flex: 1;
@@ -170,9 +137,7 @@ body {
     background: #f8f0dc;
     color: #6b5b3f;
     cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease;
 }
-
 .level-btn.active {
     background: #29231d;
     border-color: #29231d;
@@ -204,14 +169,12 @@ body {
     font-family: Arial, sans-serif;
     font-size: 15px;
 }
-
 .player-chip .you-tag {
     font-size: 11px;
     opacity: 0.5;
     text-transform: uppercase;
     letter-spacing: 1px;
 }
-
 .player-chip .host-tag {
     font-size: 11px;
     background: #29231d;
@@ -232,14 +195,9 @@ body {
     text-decoration: underline;
 }
 
-.hidden {
-    display: none !important;
-}
+.hidden { display: none !important; }
 
-/* =========================
-   GAME
-========================= */
-
+/* GAME */
 .game-screen {
     width: 100vw;
     height: 100vh;
@@ -265,10 +223,7 @@ body {
     opacity: 0.65;
     margin-right: 10px;
 }
-
-#targetNumber {
-    font-size: 34px;
-}
+#targetNumber { font-size: 34px; }
 
 .stats {
     font-family: Arial, sans-serif;
@@ -282,14 +237,12 @@ body {
     gap: 10px;
     font-family: Arial, sans-serif;
 }
-
 .score-item {
     display: flex;
     flex-direction: column;
     align-items: center;
     min-width: 48px;
 }
-
 .score-name {
     font-size: 11px;
     opacity: 0.55;
@@ -300,16 +253,8 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-
-.score-value {
-    font-size: 22px;
-    font-weight: bold;
-}
-
-.score-divider {
-    font-size: 20px;
-    opacity: 0.4;
-}
+.score-value { font-size: 22px; font-weight: bold; }
+.score-divider { font-size: 20px; opacity: 0.4; }
 
 .top-bar-right {
     display: flex;
@@ -320,7 +265,6 @@ body {
 .mute-btn {
     width: 38px;
     height: 38px;
-    flex-shrink: 0;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -331,32 +275,15 @@ body {
     color: #f4e9d0;
     cursor: pointer;
 }
+.mute-btn.muted { opacity: 0.55; }
 
-.mute-btn:active {
-    transform: scale(0.95);
-}
-
-.mute-btn.muted {
-    opacity: 0.55;
-}
-
-/* =========================
-   BOOK
-========================= */
-
+/* BOOK */
 .book {
     flex: 1;
     display: flex;
     position: relative;
     padding: 18px;
-    gap: 0;
-    background:
-        radial-gradient(
-            ellipse at center,
-            #8a7151 0%,
-            #514333 55%,
-            #29231d 100%
-        );
+    background: radial-gradient(ellipse at center, #8a7151 0%, #514333 55%, #29231d 100%);
     perspective: 1000px;
 }
 
@@ -366,21 +293,15 @@ body {
     height: 100%;
     overflow: hidden;
     background-color: #eadcbd;
-    background-image:
-        linear-gradient(
-            rgba(100, 70, 35, 0.035) 1px,
-            transparent 1px
-        );
+    background-image: linear-gradient(rgba(100, 70, 35, 0.035) 1px, transparent 1px);
     background-size: 100% 4px;
     box-shadow: inset 0 0 40px rgba(80, 50, 20, 0.13);
 }
-
 .left-page {
     border-radius: 7px 0 0 7px;
     transform: perspective(900px) rotateY(2deg);
     transform-origin: right center;
 }
-
 .right-page {
     border-radius: 0 7px 7px 0;
     transform: perspective(900px) rotateY(-2deg);
@@ -395,20 +316,11 @@ body {
     height: 100%;
     transform: translateX(-50%);
     z-index: 10;
-    background:
-        linear-gradient(
-            to right,
-            rgba(60,40,20,0.35),
-            rgba(255,255,255,0.18),
-            rgba(60,40,20,0.35)
-        );
+    background: linear-gradient(to right, rgba(60,40,20,0.35), rgba(255,255,255,0.18), rgba(60,40,20,0.35));
     box-shadow: 0 0 12px rgba(40,25,10,0.4);
 }
 
-/* =========================
-   NUMBERS
-========================= */
-
+/* NUMBERS */
 .number {
     position: absolute;
     display: flex;
@@ -418,45 +330,29 @@ body {
     min-height: 24px;
     padding: 2px 4px;
     font-family: Georgia, "Times New Roman", serif;
-    font-weight: normal;
     color: rgba(45, 37, 27, 0.82);
     cursor: pointer;
     user-select: none;
     transition: transform 0.15s ease, opacity 0.2s ease;
 }
-
-.number:hover {
-    background: rgba(90, 65, 35, 0.06);
-}
-
-.number:active {
-    transform: scale(1.25) !important;
-}
-
+.number:hover { background: rgba(90, 65, 35, 0.06); }
+.number:active { transform: scale(1.25) !important; }
 .number.found {
     opacity: 0;
     transform: scale(1.8) !important;
     pointer-events: none;
 }
-
 .number.wrong {
     background: rgba(180, 40, 30, 0.28) !important;
     border-radius: 3px;
 }
-
-.number.claimed-by-me {
-    outline: 2px solid #7a9e7e;
-}
-
-.number.claimed-by-opp {
-    outline: 2px solid #c65b5b;
-}
+.number.claimed-by-me { outline: 2px solid #7a9e7e; }
+.number.claimed-by-opp { outline: 2px solid #c65b5b; }
 
 #targetNumber.shake {
     animation: targetShake 0.3s ease;
     color: #c65b5b;
 }
-
 @keyframes targetShake {
     0%, 100% { transform: translateX(0); }
     20% { transform: translateX(-6px); }
@@ -465,10 +361,7 @@ body {
     80% { transform: translateX(3px); }
 }
 
-/* =========================
-   CELEBRATION
-========================= */
-
+/* CELEBRATION */
 .celebration {
     position: fixed;
     left: 50%;
@@ -479,11 +372,7 @@ body {
     pointer-events: none;
     opacity: 0;
 }
-
-.celebration.show {
-    animation: celebration 0.9s ease forwards;
-}
-
+.celebration.show { animation: celebration 0.9s ease forwards; }
 .celebration-found {
     font-family: Arial, sans-serif;
     font-size: 16px;
@@ -492,7 +381,6 @@ body {
     color: #f4e9d0;
     margin-bottom: 8px;
 }
-
 .celebration-next {
     font-family: Georgia, "Times New Roman", serif;
     font-size: 34px;
@@ -501,30 +389,14 @@ body {
     white-space: nowrap;
     text-shadow: 0 3px 15px rgba(0,0,0,0.5);
 }
-
 @keyframes celebration {
-    0% {
-        opacity: 0;
-        transform: translate(-50%, -50%) scale(0.7);
-    }
-    25% {
-        opacity: 1;
-        transform: translate(-50%, -50%) scale(1.08);
-    }
-    65% {
-        opacity: 1;
-        transform: translate(-50%, -50%) scale(1);
-    }
-    100% {
-        opacity: 0;
-        transform: translate(-50%, -50%) scale(1);
-    }
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+    25% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+    65% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
 }
 
-/* =========================
-   FINISHED
-========================= */
-
+/* FINISHED */
 .finished {
     position: fixed;
     inset: 0;
@@ -536,18 +408,12 @@ body {
     color: #f4e9d0;
     text-align: center;
 }
-
-.finished h1 {
-    font-size: 50px;
-    margin-bottom: 10px;
-}
-
+.finished h1 { font-size: 50px; margin-bottom: 10px; }
 .finished p {
     font-family: Arial, sans-serif;
     opacity: 0.7;
     margin-bottom: 22px;
 }
-
 #playAgainBtn {
     padding: 14px 30px;
     font-family: Arial, sans-serif;
@@ -560,14 +426,6 @@ body {
     cursor: pointer;
 }
 
-#playAgainBtn:active {
-    transform: scale(0.98);
-}
-
-/* =========================
-   CONFETTI
-========================= */
-
 #confettiCanvas {
     position: fixed;
     inset: 0;
@@ -575,46 +433,13 @@ body {
     pointer-events: none;
 }
 
-/* =========================
-   MOBILE
-========================= */
-
 @media (max-width: 600px) {
-    .top-bar {
-        height: 70px;
-        padding: 8px 15px;
-    }
-
-    #targetNumber {
-        font-size: 30px;
-    }
-
-    .book {
-        padding: 8px;
-    }
-
-    .book-spine {
-        width: 8px;
-    }
-
-    .setup-card h1 {
-        font-size: 34px;
-    }
-
-    .celebration-next {
-        font-size: 28px;
-    }
-
-    .scores-block {
-        gap: 6px;
-    }
-
-    .score-value {
-        font-size: 18px;
-    }
-
-    .score-name {
-        font-size: 10px;
-        max-width: 50px;
-    }
+    .top-bar { height: 70px; padding: 8px 15px; }
+    #targetNumber { font-size: 30px; }
+    .book { padding: 8px; }
+    .book-spine { width: 8px; }
+    .setup-card h1 { font-size: 34px; }
+    .celebration-next { font-size: 28px; }
+    .score-value { font-size: 18px; }
+    .score-name { font-size: 10px; max-width: 50px; }
 }
