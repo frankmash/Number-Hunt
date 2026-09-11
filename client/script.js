@@ -2,7 +2,7 @@
    Number Hunt — Multiplayer Client (Socket.IO)
    ========================================================= */
 
-const SERVER_URL = "http://localhost:3001";  
+const SERVER_URL = "https://number-hunt-87ss.onrender.com/";  
 
 const socket = io(SERVER_URL, {
   transports: ["websocket", "polling"],
