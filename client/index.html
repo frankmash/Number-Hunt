@@ -69,12 +69,12 @@
       </div>
 
       <div class="scores-block">
-        <div class="score-item">
+        <div class="score-item" id="scoreP1">
           <span class="score-name" id="nameP1">P1</span>
           <span class="score-value" id="scoreValueP1">0</span>
         </div>
         <div class="score-divider">:</div>
-        <div class="score-item">
+        <div class="score-item" id="scoreP2">
           <span class="score-name" id="nameP2">P2</span>
           <span class="score-value" id="scoreValueP2">0</span>
         </div>
@@ -100,7 +100,10 @@
     <div>
       <h1 id="winnerTitle">Finished!</h1>
       <p id="finalScores"></p>
-      <button id="playAgainBtn" class="primary-btn">Back to Lobby</button>
+      <div class="finished-actions">
+        <button id="playAgainBtn" class="primary-btn">Play Again</button>
+        <button id="backLobbyBtn" class="text-btn">Back to Lobby</button>
+      </div>
     </div>
   </div>
 

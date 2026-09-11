@@ -241,14 +241,19 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    min-width: 48px;
+    min-width: 52px;
+    padding: 4px 6px;
+    border-radius: 6px;
+}
+.score-item.is-me {
+    background: rgba(244, 233, 208, 0.12);
 }
 .score-name {
     font-size: 11px;
     opacity: 0.55;
     text-transform: uppercase;
     letter-spacing: 1px;
-    max-width: 70px;
+    max-width: 80px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -414,17 +419,67 @@ body {
     opacity: 0.7;
     margin-bottom: 22px;
 }
-#playAgainBtn {
-    padding: 14px 30px;
-    font-family: Arial, sans-serif;
-    font-size: 15px;
-    font-weight: bold;
-    border: none;
-    border-radius: 5px;
-    background: #f4e9d0;
-    color: #29231d;
-    cursor: pointer;
+.finished-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
 }
+#playAgainBtn {
+    width: auto;
+    min-width: 160px;
+    padding: 14px 30px;
+}
+#backLobbyBtn {
+    color: #f4e9d0;
+    opacity: 0.6;
+}
+
+/* TOAST */
+.toast {
+    position: fixed;
+    top: 90px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    font-weight: bold;
+    z-index: 300;
+    opacity: 0;
+    transition: all 0.25s ease;
+    pointer-events: none;
+}
+.toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+.toast.me {
+    background: #7a9e7e;
+    color: #fff;
+}
+.toast.opponent {
+    background: #c65b5b;
+    color: #fff;
+}
+
+/* CONNECTION BANNER */
+.connection-banner {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+    z-index: 400;
+    transition: opacity 0.3s ease;
+}
+.connection-banner.success { background: #7a9e7e; color: #fff; }
+.connection-banner.warn { background: #d9a441; color: #29231d; }
+.connection-banner.hide { opacity: 0; }
 
 #confettiCanvas {
     position: fixed;
@@ -433,13 +488,19 @@ body {
     pointer-events: none;
 }
 
+/* MOBILE */
 @media (max-width: 600px) {
-    .top-bar { height: 70px; padding: 8px 15px; }
-    #targetNumber { font-size: 30px; }
+    .top-bar {
+        height: 70px;
+        padding: 8px 12px;
+    }
+    #targetNumber { font-size: 28px; }
     .book { padding: 8px; }
     .book-spine { width: 8px; }
     .setup-card h1 { font-size: 34px; }
-    .celebration-next { font-size: 28px; }
+    .celebration-next { font-size: 26px; }
     .score-value { font-size: 18px; }
-    .score-name { font-size: 10px; max-width: 50px; }
+    .score-name { font-size: 10px; max-width: 60px; }
+    .label { font-size: 11px; margin-right: 6px; }
+    .stats { font-size: 14px; }
 }

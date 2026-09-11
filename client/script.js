@@ -1,18 +1,20 @@
 /* =========================================================
-   Number Hunt — Multiplayer Client (Socket.IO)
+   Number Hunt — Multiplayer Client (Socket.IO) v2
    ========================================================= */
 
 const SERVER_URL = "https://number-hunt-87ss.onrender.com/";  
 
 const socket = io(SERVER_URL, {
   transports: ["websocket", "polling"],
-  autoConnect: true
+  autoConnect: true,
+  reconnectionAttempts: 8,
+  reconnectionDelay: 1500
 });
 
 // -------------------- DOM --------------------
-const lobbyScreen   = document.getElementById("lobbyScreen");
-const waitingScreen = document.getElementById("waitingScreen");
-const gameScreen    = document.getElementById("gameScreen");
+const lobbyScreen     = document.getElementById("lobbyScreen");
+const waitingScreen   = document.getElementById("waitingScreen");
+const gameScreen      = document.getElementById("gameScreen");
 const finishedOverlay = document.getElementById("finishedOverlay");
 
 const playerNameInput = document.getElementById("playerName");
@@ -44,13 +46,19 @@ const nameP1 = document.getElementById("nameP1");
 const nameP2 = document.getElementById("nameP2");
 const scoreValueP1 = document.getElementById("scoreValueP1");
 const scoreValueP2 = document.getElementById("scoreValueP2");
+const scoreP1El = document.getElementById("scoreP1");
+const scoreP2El = document.getElementById("scoreP2");
 
-const winnerTitle = document.getElementById("winnerTitle");
-const finalScores = document.getElementById("finalScores");
+const winnerTitle  = document.getElementById("winnerTitle");
+const finalScores  = document.getElementById("finalScores");
 const playAgainBtn = document.getElementById("playAgainBtn");
+const backLobbyBtn = document.getElementById("backLobbyBtn");
 
 const confettiCanvas = document.getElementById("confettiCanvas");
 const confettiCtx = confettiCanvas.getContext("2d");
+
+// connection banner
+let connectionBanner = null;
 
 // -------------------- State --------------------
 let myId = null;
@@ -61,6 +69,7 @@ let selectedLevel = "medium";
 let isMuted = false;
 let currentTarget = null;
 let claimingLock = false;
+let currentRoom = null;
 
 // -------------------- Helpers --------------------
 function showScreen(screen) {
@@ -76,6 +85,32 @@ function setLobbyError(msg) {
 function clearLobbyError() {
   lobbyHint.textContent = "Create a room and share the code with a friend";
   lobbyHint.style.color = "";
+}
+
+function showBanner(text, type = "info") {
+  if (connectionBanner) connectionBanner.remove();
+  connectionBanner = document.createElement("div");
+  connectionBanner.className = `connection-banner ${type}`;
+  connectionBanner.textContent = text;
+  document.body.appendChild(connectionBanner);
+  setTimeout(() => {
+    if (connectionBanner) {
+      connectionBanner.classList.add("hide");
+      setTimeout(() => connectionBanner?.remove(), 400);
+    }
+  }, 3500);
+}
+
+function showToast(text, isOpponent = false) {
+  const toast = document.createElement("div");
+  toast.className = `toast ${isOpponent ? "opponent" : "me"}`;
+  toast.textContent = text;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add("show"));
+  setTimeout(() => {
+    toast.classList.remove("show");
+    setTimeout(() => toast.remove(), 300);
+  }, 1600);
 }
 
 function updateMaxHint() {
@@ -116,8 +151,15 @@ function playTone({ freq, freqEnd, duration, type = "sine", volume = 0.2 }) {
   osc.start();
   osc.stop(audioCtx.currentTime + duration);
 }
-function playFoundSound() { playTone({ freq: 520, freqEnd: 940, duration: 0.15, type: "sine", volume: 0.4 }); }
-function playWrongSound() { playTone({ freq: 170, freqEnd: 90, duration: 0.18, type: "square", volume: 0.25 }); }
+function playFoundSound() {
+  playTone({ freq: 520, freqEnd: 940, duration: 0.15, type: "sine", volume: 0.4 });
+}
+function playOpponentSound() {
+  playTone({ freq: 320, freqEnd: 180, duration: 0.14, type: "triangle", volume: 0.22 });
+}
+function playWrongSound() {
+  playTone({ freq: 170, freqEnd: 90, duration: 0.18, type: "square", volume: 0.25 });
+}
 function playFinishSound() {
   playTone({ freq: 440, duration: 0.15, type: "sine", volume: 0.4 });
   setTimeout(() => playTone({ freq: 554, duration: 0.15, type: "sine", volume: 0.4 }), 120);
@@ -192,8 +234,9 @@ function spawnFinishConfetti() {
   }
 }
 
-// -------------------- UI helpers --------------------
+// -------------------- UI --------------------
 function updatePlayersUI(room) {
+  currentRoom = room;
   playersList.innerHTML = "";
   room.players.forEach(p => {
     const chip = document.createElement("div");
@@ -223,20 +266,24 @@ function updatePlayersUI(room) {
 }
 
 function updateScoresUI(room) {
-  if (room.players[0]) {
-    nameP1.textContent = room.players[0].name;
-    scoreValueP1.textContent = room.players[0].score;
+  const p1 = room.players[0];
+  const p2 = room.players[1];
+
+  if (p1) {
+    nameP1.textContent = p1.id === myId ? `${p1.name} (you)` : p1.name;
+    scoreValueP1.textContent = p1.score;
+    scoreP1El?.classList.toggle("is-me", p1.id === myId);
   }
-  if (room.players[1]) {
-    nameP2.textContent = room.players[1].name;
-    scoreValueP2.textContent = room.players[1].score;
+  if (p2) {
+    nameP2.textContent = p2.id === myId ? `${p2.name} (you)` : p2.name;
+    scoreValueP2.textContent = p2.score;
+    scoreP2El?.classList.toggle("is-me", p2.id === myId);
   }
 }
 
 function renderBoard(board) {
   leftPage.innerHTML = "";
   rightPage.innerHTML = "";
-
   board.forEach(item => {
     const el = document.createElement("div");
     el.className = "number";
@@ -247,9 +294,7 @@ function renderBoard(board) {
     el.style.top = item.y + "%";
     el.style.transform = `translate(-50%, -50%) rotate(${item.rotation}deg)`;
     el.style.color = `rgba(45, 37, 27, ${item.opacity})`;
-
     el.addEventListener("click", () => onNumberClick(item.number, el));
-
     if (item.page === "left") leftPage.appendChild(el);
     else rightPage.appendChild(el);
   });
@@ -293,32 +338,53 @@ function onNumberClick(number, element) {
     handleWrongClick(element);
     return;
   }
-
   claimingLock = true;
-  socket.emit("claim_number", { code: roomCode, number }, (res) => {
+  socket.emit("claim_number", { code: roomCode, number }, () => {
     claimingLock = false;
-    if (res?.error) {
-      // already taken or wrong
-    }
   });
+}
+
+function resetToLobby() {
+  roomCode = "";
+  myId = null;
+  currentRoom = null;
+  isHost = false;
+  showScreen(lobbyScreen);
 }
 
 // -------------------- Socket events --------------------
 socket.on("connect", () => {
-  console.log("Connected to server");
+  console.log("Connected");
+  showBanner("Connected to server", "success");
 });
 
-socket.on("connect_error", (err) => {
-  console.error("Connection error", err);
-  setLobbyError("Cannot connect to server. Is the backend running?");
+socket.on("disconnect", () => {
+  showBanner("Disconnected — trying to reconnect…", "warn");
 });
 
-socket.on("room_updated", (room) => {
+socket.on("connect_error", () => {
+  setLobbyError("Cannot reach server. It may be waking up (Render free tier)…");
+  showBanner("Server is waking up, please wait 20–40 seconds…", "warn");
+});
+
+socket.on("room_updated", (room) => updatePlayersUI(room));
+
+socket.on("player_left", ({ playerName, room }) => {
+  showBanner(`${playerName} left the room`, "warn");
   updatePlayersUI(room);
+
+  if (room.players.length < 2 && room.status === "playing") {
+    // force back if mid-game
+    setTimeout(() => {
+      showBanner("Game cancelled — opponent left", "warn");
+      resetToLobby();
+    }, 1800);
+  }
 });
 
 socket.on("game_started", (room) => {
   initAudio();
+  currentRoom = room;
   roomCode = room.code;
   totalCountElement.textContent = room.totalNumbers;
   foundCountElement.textContent = 0;
@@ -326,9 +392,11 @@ socket.on("game_started", (room) => {
   renderBoard(room.board);
   setTarget(room.currentTarget);
   showScreen(gameScreen);
+  finishedOverlay.classList.add("hidden");
 });
 
 socket.on("number_claimed", ({ number, playerId, playerName, room }) => {
+  currentRoom = room;
   const el = document.querySelector(`.number[data-number="${number}"]`);
   if (el) {
     el.classList.add("found");
@@ -337,17 +405,20 @@ socket.on("number_claimed", ({ number, playerId, playerName, room }) => {
       playFoundSound();
       const rect = el.getBoundingClientRect();
       spawnConfetti(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      showToast("You got it!", false);
     } else {
       el.classList.add("claimed-by-opp");
+      playOpponentSound();
+      showToast(`${playerName} found it!`, true);
     }
   }
-
   foundCountElement.textContent = room.foundCount;
   updateScoresUI(room);
   setTarget(room.currentTarget);
 });
 
 socket.on("game_over", (room) => {
+  currentRoom = room;
   playFinishSound();
   spawnFinishConfetti();
 
@@ -361,6 +432,11 @@ socket.on("game_over", (room) => {
 
   winnerTitle.textContent = title;
   finalScores.textContent = `${p1?.name || "P1"}: ${p1?.score || 0}   —   ${p2?.name || "P2"}: ${p2?.score || 0}`;
+
+  // show Play Again only for host
+  if (playAgainBtn) {
+    playAgainBtn.style.display = isHost ? "inline-block" : "none";
+  }
   finishedOverlay.classList.remove("hidden");
 });
 
@@ -369,14 +445,12 @@ createRoomBtn.addEventListener("click", () => {
   myName = playerNameInput.value.trim() || "Player";
   if (!myName) return setLobbyError("Enter your name first");
   clearLobbyError();
-
   createRoomBtn.disabled = true;
   createRoomBtn.textContent = "Creating...";
 
   socket.emit("create_room", { playerName: myName }, (res) => {
     createRoomBtn.disabled = false;
     createRoomBtn.textContent = "Create Room";
-
     if (res.error) return setLobbyError(res.error);
 
     myId = res.playerId;
@@ -384,24 +458,26 @@ createRoomBtn.addEventListener("click", () => {
     displayRoomCode.textContent = roomCode;
     updatePlayersUI(res.room);
     showScreen(waitingScreen);
+
+    // update URL for easy sharing
+    const url = new URL(window.location);
+    url.searchParams.set("room", roomCode);
+    history.replaceState(null, "", url);
   });
 });
 
 joinRoomBtn.addEventListener("click", () => {
   myName = playerNameInput.value.trim() || "Player";
   const code = roomCodeInput.value.trim().toUpperCase();
-
   if (!myName) return setLobbyError("Enter your name first");
   if (code.length < 4) return setLobbyError("Enter a valid room code");
   clearLobbyError();
-
   joinRoomBtn.disabled = true;
   joinRoomBtn.textContent = "...";
 
   socket.emit("join_room", { code, playerName: myName }, (res) => {
     joinRoomBtn.disabled = false;
     joinRoomBtn.textContent = "Join";
-
     if (res.error) return setLobbyError(res.error);
 
     myId = res.playerId;
@@ -415,29 +491,50 @@ joinRoomBtn.addEventListener("click", () => {
 startGameBtn.addEventListener("click", () => {
   if (!isHost) return;
   const total = parseInt(maxNumberInput.value) || 50;
+  startGameBtn.disabled = true;
+  startGameBtn.textContent = "Starting...";
 
   socket.emit("start_game", {
     code: roomCode,
     level: selectedLevel,
     totalNumbers: total
   }, (res) => {
+    startGameBtn.disabled = false;
+    startGameBtn.textContent = "Start Game";
     if (res?.error) alert(res.error);
   });
 });
 
 leaveRoomBtn.addEventListener("click", () => {
   if (roomCode) socket.emit("leave_room", { code: roomCode });
-  roomCode = "";
-  myId = null;
-  showScreen(lobbyScreen);
+  history.replaceState(null, "", window.location.pathname);
+  resetToLobby();
 });
 
-playAgainBtn.addEventListener("click", () => {
-  finishedOverlay.classList.add("hidden");
+playAgainBtn?.addEventListener("click", () => {
+  if (!isHost || !roomCode) return;
+  playAgainBtn.disabled = true;
+  playAgainBtn.textContent = "Restarting...";
+  socket.emit("play_again", { code: roomCode }, (res) => {
+    playAgainBtn.disabled = false;
+    playAgainBtn.textContent = "Play Again";
+    if (res?.error) alert(res.error);
+  });
+});
+
+backLobbyBtn?.addEventListener("click", () => {
   if (roomCode) socket.emit("leave_room", { code: roomCode });
-  roomCode = "";
-  myId = null;
-  showScreen(lobbyScreen);
+  history.replaceState(null, "", window.location.pathname);
+  resetToLobby();
+});
+
+// Auto-join from URL ?room=ABC12
+window.addEventListener("load", () => {
+  const params = new URLSearchParams(window.location.search);
+  const roomFromUrl = params.get("room");
+  if (roomFromUrl) {
+    roomCodeInput.value = roomFromUrl.toUpperCase();
+  }
 });
 
 playerNameInput.addEventListener("keydown", e => {
