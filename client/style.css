@@ -285,31 +285,6 @@ body {
 .score-value { font-size: 22px; font-weight: bold; }
 .score-divider { font-size: 20px; opacity: 0.4; }
 
-.score-target {
-    display: none;
-    font-size: 13px;
-    font-weight: bold;
-    color: #e8b96a;
-    margin: 1px 0;
-}
-
-/*
- * Same-device 2-player mode: each side hunts its own
- * numbers with its own target, so the single shared
- * "FIND X" and combined count don't apply — hide those
- * and show each player's own target inline with their
- * score instead.
- */
-.top-bar.local2p .target-block {
-    display: none;
-}
-.top-bar.local2p .stats {
-    display: none;
-}
-.top-bar.local2p .score-target {
-    display: block;
-}
-
 .top-bar-right {
     display: flex;
     align-items: center;
