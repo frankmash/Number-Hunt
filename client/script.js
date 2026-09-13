@@ -29,11 +29,6 @@ const localLevelButtons = localLevelSelect.querySelectorAll(".level-btn");
 const localStartBtn     = document.getElementById("localStartBtn");
 const localBackBtn      = document.getElementById("localBackBtn");
 
-const targetBlockEl = document.querySelector(".target-block");
-const topBarEl       = document.querySelector(".top-bar");
-const targetP1El = document.getElementById("targetP1");
-const targetP2El = document.getElementById("targetP2");
-
 const playerNameInput = document.getElementById("playerName");
 const roomCodeInput   = document.getElementById("roomCodeInput");
 const createRoomBtn   = document.getElementById("createRoomBtn");
@@ -61,6 +56,7 @@ const muteBtn = document.getElementById("muteBtn");
 
 const nameP1 = document.getElementById("nameP1");
 const nameP2 = document.getElementById("nameP2");
+const scoresBlockEl = document.querySelector(".scores-block");
 const scoreValueP1 = document.getElementById("scoreValueP1");
 const scoreValueP2 = document.getElementById("scoreValueP2");
 const scoreP1El = document.getElementById("scoreP1");
@@ -88,13 +84,16 @@ let currentTarget = null;
 let claimingLock = false;
 let currentRoom = null;
 
-// gameMode: "online" (socket-based) | "solo" | "local2p" — the
-// latter two run entirely client-side, no server involved.
+// gameMode: "online" (socket-based) | "local" — "local" covers both
+// Solo Practice and same-device 2P, since they're the same shared
+// board/target engine. The only difference between them is which
+// lobby button launched it and the copy shown on the finish screen —
+// same-device play doesn't track individual scores (see soloIsShared
+// below), the two players keep their own tally.
 let gameMode = "online";
-let pendingLocalMode = "solo"; // which mode localSetupScreen is currently configuring
+let pendingLocalMode = "solo"; // "solo" | "shared" — which local flavor localSetupScreen is configuring
 let localSelectedLevel = "medium";
-let soloState = null;   // { remaining: [numbers], total }
-let local2p = null;     // { p1: {...}, p2: {...}, total, level }
+let soloState = null; // { remaining: [numbers], total, shared: bool }
 
 // -------------------- Helpers --------------------
 function showScreen(screen) {
@@ -449,17 +448,16 @@ function showCelebration(number) {
   setTimeout(() => el.remove(), 950);
 }
 
-function handleWrongClick(element, targetEl = targetNumberElement) {
+function handleWrongClick(element) {
   playWrongSound();
   element.classList.add("wrong");
-  targetEl.classList.add("shake");
+  targetNumberElement.classList.add("shake");
   setTimeout(() => element.classList.remove("wrong"), 300);
-  setTimeout(() => targetEl.classList.remove("shake"), 300);
+  setTimeout(() => targetNumberElement.classList.remove("shake"), 300);
 }
 
 function onNumberClick(number, element) {
-  if (gameMode === "solo") return onSoloNumberClick(number, element);
-  if (gameMode === "local2p") return onLocal2PNumberClick(number, element);
+  if (gameMode === "local") return onLocalNumberClick(number, element);
 
   // online (default)
   if (claimingLock || !currentTarget) return;
@@ -473,7 +471,13 @@ function onNumberClick(number, element) {
   });
 }
 
-function onSoloNumberClick(number, element) {
+// Shared engine for both Solo Practice and same-device 2P — same
+// board, same single target. The only thing that differs between
+// them is the finish-screen copy; same-device play doesn't track
+// individual scores because the app has no way to know which
+// player's finger tapped (see the conversation that led here) —
+// the two players keep score themselves.
+function onLocalNumberClick(number, element) {
   if (!soloState || element.classList.contains("found")) return;
   if (number !== currentTarget) {
     handleWrongClick(element);
@@ -493,46 +497,12 @@ function onSoloNumberClick(number, element) {
   setTarget(pickRandom(soloState.remaining));
 }
 
-function onLocal2PNumberClick(number, element) {
-  if (!local2p || element.classList.contains("found")) return;
-
-  const isLeft = element.closest(".left-page") !== null;
-  const side = isLeft ? "p1" : "p2";
-  const state = local2p[side];
-  const targetEl = side === "p1" ? targetP1El : targetP2El;
-
-  if (number !== state.target) {
-    handleWrongClick(element, targetEl);
-    return;
-  }
-
-  element.classList.add("found");
-  state.remaining = state.remaining.filter(n => n !== number);
-  state.score++;
-
-  const scoreEl = side === "p1" ? scoreValueP1 : scoreValueP2;
-  scoreEl.textContent = state.score;
-
-  playFoundSound();
-  const rect = element.getBoundingClientRect();
-  spawnConfetti(rect.left + rect.width / 2, rect.top + rect.height / 2);
-
-  if (state.remaining.length === 0) {
-    finishLocal2P(side);
-    return;
-  }
-
-  state.target = pickRandom(state.remaining);
-  targetEl.textContent = `FIND ${state.target}`;
-}
-
 function resetToLobby() {
   roomCode = "";
   myId = null;
   currentRoom = null;
   isHost = false;
   gameMode = "online";
-  topBarEl.classList.remove("local2p");
   showScreen(lobbyScreen);
 }
 
@@ -570,6 +540,7 @@ socket.on("game_started", (room) => {
   initAudio();
   currentRoom = room;
   roomCode = room.code;
+  scoresBlockEl.style.display = "";
   totalCountElement.textContent = room.totalNumbers;
   foundCountElement.textContent = 0;
   updateScoresUI(room);
@@ -632,7 +603,7 @@ soloBtn.addEventListener("click", () => {
 });
 
 passPlayBtn.addEventListener("click", () => {
-  pendingLocalMode = "local2p";
+  pendingLocalMode = "shared";
   localSetupTitle.textContent = "2 Players — Same Device";
   showScreen(localSetupScreen);
 });
@@ -644,17 +615,18 @@ localBackBtn.addEventListener("click", () => {
 localStartBtn.addEventListener("click", () => {
   const total = Math.max(10, parseInt(localMaxNumberInput.value) || 50);
   initAudio();
-  if (pendingLocalMode === "solo") {
-    startSolo(total, localSelectedLevel);
-  } else {
-    startLocal2P(total, localSelectedLevel);
-  }
+  startLocalGame(total, localSelectedLevel, pendingLocalMode === "shared");
 });
 
-// -------------------- Solo mode --------------------
-function startSolo(total, level) {
-  gameMode = "solo";
-  topBarEl.classList.remove("local2p");
+// -------------------- Local engine (Solo + same-device 2P) --------------------
+// One shared board, one shared target — identical to the online
+// mechanic, just running client-side. `shared` distinguishes only
+// the finish-screen copy: same-device play doesn't track individual
+// scores (the app has no way to know which player's finger tapped),
+// so the two players keep their own tally.
+function startLocalGame(total, level, shared) {
+  gameMode = "local";
+  scoresBlockEl.style.display = "none";
 
   const numbers = localShuffle(Array.from({ length: total }, (_, i) => i + 1));
   const leftNums = numbers.filter((_, i) => i % 2 === 0);
@@ -664,7 +636,7 @@ function startSolo(total, level) {
     ...buildLocalPageBoard(rightNums, "right", level)
   ];
 
-  soloState = { remaining: [...numbers], total };
+  soloState = { remaining: [...numbers], total, shared };
 
   totalCountElement.textContent = total;
   foundCountElement.textContent = 0;
@@ -676,51 +648,13 @@ function startSolo(total, level) {
 function finishSolo() {
   playFinishSound();
   spawnFinishConfetti();
-  winnerTitle.textContent = "Finished!";
-  finalScores.textContent = `You found all ${soloState.total} numbers`;
-  if (playAgainBtn) playAgainBtn.style.display = "inline-block";
-  finishedOverlay.classList.remove("hidden");
-}
-
-// -------------------- Same-device 2-player mode --------------------
-function startLocal2P(total, level) {
-  gameMode = "local2p";
-  topBarEl.classList.add("local2p");
-
-  const p1Nums = localShuffle(Array.from({ length: total }, (_, i) => i + 1));
-  const p2Nums = localShuffle(Array.from({ length: total }, (_, i) => i + 1));
-  const board = [
-    ...buildLocalPageBoard(p1Nums, "left", level),
-    ...buildLocalPageBoard(p2Nums, "right", level)
-  ];
-
-  local2p = {
-    total,
-    p1: { remaining: [...p1Nums], score: 0, target: null },
-    p2: { remaining: [...p2Nums], score: 0, target: null }
-  };
-
-  nameP1.textContent = "Player 1";
-  nameP2.textContent = "Player 2";
-  scoreValueP1.textContent = 0;
-  scoreValueP2.textContent = 0;
-
-  renderBoard(board);
-
-  local2p.p1.target = pickRandom(local2p.p1.remaining);
-  local2p.p2.target = pickRandom(local2p.p2.remaining);
-  targetP1El.textContent = `FIND ${local2p.p1.target}`;
-  targetP2El.textContent = `FIND ${local2p.p2.target}`;
-
-  showScreen(gameScreen);
-}
-
-function finishLocal2P(winnerSide) {
-  playFinishSound();
-  spawnFinishConfetti();
-  const label = winnerSide === "p1" ? "Player 1" : "Player 2";
-  winnerTitle.textContent = `${label} wins!`;
-  finalScores.textContent = `Player 1: ${local2p.p1.score}   —   Player 2: ${local2p.p2.score}`;
+  if (soloState.shared) {
+    winnerTitle.textContent = "All found!";
+    finalScores.textContent = `${soloState.total} numbers found — compare your tallies`;
+  } else {
+    winnerTitle.textContent = "Finished!";
+    finalScores.textContent = `You found all ${soloState.total} numbers`;
+  }
   if (playAgainBtn) playAgainBtn.style.display = "inline-block";
   finishedOverlay.classList.remove("hidden");
 }
@@ -800,12 +734,8 @@ leaveRoomBtn.addEventListener("click", () => {
 });
 
 playAgainBtn?.addEventListener("click", () => {
-  if (gameMode === "solo") {
-    startSolo(soloState.total, localSelectedLevel);
-    return;
-  }
-  if (gameMode === "local2p") {
-    startLocal2P(local2p.total, localSelectedLevel);
+  if (gameMode === "local") {
+    startLocalGame(soloState.total, localSelectedLevel, soloState.shared);
     return;
   }
   if (!isHost || !roomCode) return;
@@ -819,7 +749,7 @@ playAgainBtn?.addEventListener("click", () => {
 });
 
 backLobbyBtn?.addEventListener("click", () => {
-  if (gameMode === "solo" || gameMode === "local2p") {
+  if (gameMode === "local") {
     resetToLobby();
     return;
   }
