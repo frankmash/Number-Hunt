@@ -4,6 +4,10 @@
     padding: 0;
 }
 
+html, body {
+    height: 100%;
+}
+
 body {
     font-family: Georgia, "Times New Roman", serif;
     background: #171513;
@@ -14,10 +18,16 @@ body {
 .screen {
     width: 100vw;
     height: 100vh;
+    height: 100dvh; /* accounts for mobile browser chrome resizing */
     display: flex;
     justify-content: center;
     align-items: center;
     background: radial-gradient(circle at center, #39332d, #171513);
+    padding:
+        env(safe-area-inset-top)
+        env(safe-area-inset-right)
+        env(safe-area-inset-bottom)
+        env(safe-area-inset-left);
 }
 
 .setup-card {
@@ -96,6 +106,16 @@ body {
 
 .join-row { display: flex; gap: 8px; }
 .join-row input { flex: 1; text-transform: uppercase; letter-spacing: 3px; }
+
+.local-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.full-btn {
+    width: 100%;
+}
 
 .hint {
     font-family: Arial, sans-serif;
@@ -201,6 +221,7 @@ body {
 .game-screen {
     width: 100vw;
     height: 100vh;
+    height: 100dvh; /* accounts for mobile browser chrome resizing */
     display: flex;
     flex-direction: column;
 }
@@ -212,6 +233,9 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 10px 25px;
+    padding-top: calc(10px + env(safe-area-inset-top));
+    padding-left: calc(25px + env(safe-area-inset-left));
+    padding-right: calc(25px + env(safe-area-inset-right));
     background: #211e1b;
     color: #f4e9d0;
     z-index: 20;
@@ -261,6 +285,31 @@ body {
 .score-value { font-size: 22px; font-weight: bold; }
 .score-divider { font-size: 20px; opacity: 0.4; }
 
+.score-target {
+    display: none;
+    font-size: 13px;
+    font-weight: bold;
+    color: #e8b96a;
+    margin: 1px 0;
+}
+
+/*
+ * Same-device 2-player mode: each side hunts its own
+ * numbers with its own target, so the single shared
+ * "FIND X" and combined count don't apply — hide those
+ * and show each player's own target inline with their
+ * score instead.
+ */
+.top-bar.local2p .target-block {
+    display: none;
+}
+.top-bar.local2p .stats {
+    display: none;
+}
+.top-bar.local2p .score-target {
+    display: block;
+}
+
 .top-bar-right {
     display: flex;
     align-items: center;
@@ -285,10 +334,30 @@ body {
 /* BOOK */
 .book {
     flex: 1;
-    display: flex;
     position: relative;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
     padding: 18px;
+    padding-bottom: calc(18px + env(safe-area-inset-bottom));
+    padding-left: calc(18px + env(safe-area-inset-left));
+    padding-right: calc(18px + env(safe-area-inset-right));
     background: radial-gradient(ellipse at center, #8a7151 0%, #514333 55%, #29231d 100%);
+}
+
+.board-inner {
+    /*
+     * Deliberately bigger than the visible area —
+     * you have to scroll to reach numbers near the
+     * far edges, instead of everything being visible
+     * at once. No pinch-zoom (disabled in the viewport
+     * meta tag) — just plain scroll, top/bottom/left/right.
+     */
+    position: relative;
+    display: flex;
+    width: 145%;
+    height: 145%;
+    min-width: 145%;
+    min-height: 145%;
     perspective: 1000px;
 }
 
@@ -493,9 +562,17 @@ body {
     .top-bar {
         height: 70px;
         padding: 8px 12px;
+        padding-top: calc(8px + env(safe-area-inset-top));
+        padding-left: calc(12px + env(safe-area-inset-left));
+        padding-right: calc(12px + env(safe-area-inset-right));
     }
     #targetNumber { font-size: 28px; }
-    .book { padding: 8px; }
+    .book {
+        padding: 8px;
+        padding-bottom: calc(8px + env(safe-area-inset-bottom));
+        padding-left: calc(8px + env(safe-area-inset-left));
+        padding-right: calc(8px + env(safe-area-inset-right));
+    }
     .book-spine { width: 8px; }
     .setup-card h1 { font-size: 34px; }
     .celebration-next { font-size: 26px; }
