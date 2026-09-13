@@ -78,24 +78,84 @@ function shuffle(arr) {
   return arr;
 }
 
-function buildGridPositions(count) {
+/*
+ * Genuinely random scatter placement, not a jittered
+ * grid. A grid-with-jitter approach (the old version)
+ * looks fine at very high counts but visibly lines up
+ * into columns/rows at the counts this game actually
+ * uses (default 50) — jitter of a fraction of a cell
+ * isn't enough to hide a 6x9 grid.
+ *
+ * Instead: try random (x, y) points and reject ones too
+ * close to an already-placed number. A spatial hash
+ * keeps the "is anything nearby" check to O(1) average
+ * instead of checking against every prior number, so
+ * this can't regress into the O(n^2) hang the very
+ * first version of this game had at high counts.
+ */
+function buildScatterPositions(count, level) {
   if (count === 0) return [];
-  const aspect = 400 / 600;
-  let cols = Math.max(1, Math.round(Math.sqrt(count * aspect)));
-  let rows = Math.ceil(count / cols);
-  while (cols * rows < count) rows++;
-  const cellW = 100 / cols, cellH = 100 / rows;
-  const cells = [];
-  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) cells.push({ r, c });
-  shuffle(cells);
-  return cells.slice(0, count).map(cell => {
-    const jitterX = (Math.random() - 0.5) * cellW * 0.6;
-    const jitterY = (Math.random() - 0.5) * cellH * 0.6;
-    return {
-      x: Math.min(96, Math.max(4, cell.c * cellW + cellW / 2 + jitterX)),
-      y: Math.min(95, Math.max(5, cell.r * cellH + cellH / 2 + jitterY))
-    };
-  });
+
+  const baseSpacing = level === "hard" ? 13 : 17;
+  const minDist = Math.max(2.2, baseSpacing / Math.sqrt(count));
+  const cellSize = minDist;
+
+  const grid = new Map();
+
+  function cellKey(cx, cy) {
+    return cx + "," + cy;
+  }
+
+  function hasNeighbor(x, y) {
+    const cx = Math.floor(x / cellSize);
+    const cy = Math.floor(y / cellSize);
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const bucket = grid.get(cellKey(cx + dx, cy + dy));
+        if (!bucket) continue;
+        for (const p of bucket) {
+          const ddx = p.x - x;
+          const ddy = p.y - y;
+          if (ddx * ddx + ddy * ddy < minDist * minDist) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function addPoint(x, y) {
+    const key = cellKey(Math.floor(x / cellSize), Math.floor(y / cellSize));
+    if (!grid.has(key)) grid.set(key, []);
+    grid.get(key).push({ x, y });
+  }
+
+  const positions = [];
+
+  for (let i = 0; i < count; i++) {
+    let x, y, found = false;
+
+    for (let attempt = 0; attempt < 20; attempt++) {
+      x = 4 + Math.random() * 92;
+      y = 5 + Math.random() * 90;
+      if (!hasNeighbor(x, y)) {
+        found = true;
+        break;
+      }
+    }
+
+    // If 20 tries all collided (very dense board), place it
+    // anyway rather than looping forever — a rare visible
+    // overlap beats an infinite loop.
+    if (!found) {
+      x = 4 + Math.random() * 92;
+      y = 5 + Math.random() * 90;
+    }
+
+    positions.push({ x, y });
+    addPoint(x, y);
+  }
+
+  return positions;
 }
 
 function generateBoard(total, level) {
@@ -104,8 +164,8 @@ function generateBoard(total, level) {
   shuffle(numbers);
   const leftNums = numbers.filter((_, i) => i % 2 === 0);
   const rightNums = numbers.filter((_, i) => i % 2 === 1);
-  const leftPos = buildGridPositions(leftNums.length);
-  const rightPos = buildGridPositions(rightNums.length);
+  const leftPos = buildScatterPositions(leftNums.length, level);
+  const rightPos = buildScatterPositions(rightNums.length, level);
   const board = [];
 
   leftNums.forEach((num, i) => {
