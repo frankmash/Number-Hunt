@@ -12,10 +12,27 @@ const socket = io(SERVER_URL, {
 });
 
 // -------------------- DOM --------------------
-const lobbyScreen     = document.getElementById("lobbyScreen");
-const waitingScreen   = document.getElementById("waitingScreen");
-const gameScreen      = document.getElementById("gameScreen");
-const finishedOverlay = document.getElementById("finishedOverlay");
+const lobbyScreen      = document.getElementById("lobbyScreen");
+const waitingScreen    = document.getElementById("waitingScreen");
+const localSetupScreen = document.getElementById("localSetupScreen");
+const gameScreen       = document.getElementById("gameScreen");
+const finishedOverlay  = document.getElementById("finishedOverlay");
+
+const soloBtn     = document.getElementById("soloBtn");
+const passPlayBtn = document.getElementById("passPlayBtn");
+
+const localSetupTitle   = document.getElementById("localSetupTitle");
+const localMaxNumberInput = document.getElementById("localMaxNumber");
+const localMaxHint      = document.getElementById("localMaxHint");
+const localLevelSelect  = document.getElementById("localLevelSelect");
+const localLevelButtons = localLevelSelect.querySelectorAll(".level-btn");
+const localStartBtn     = document.getElementById("localStartBtn");
+const localBackBtn      = document.getElementById("localBackBtn");
+
+const targetBlockEl = document.querySelector(".target-block");
+const topBarEl       = document.querySelector(".top-bar");
+const targetP1El = document.getElementById("targetP1");
+const targetP2El = document.getElementById("targetP2");
 
 const playerNameInput = document.getElementById("playerName");
 const roomCodeInput   = document.getElementById("roomCodeInput");
@@ -71,9 +88,17 @@ let currentTarget = null;
 let claimingLock = false;
 let currentRoom = null;
 
+// gameMode: "online" (socket-based) | "solo" | "local2p" — the
+// latter two run entirely client-side, no server involved.
+let gameMode = "online";
+let pendingLocalMode = "solo"; // which mode localSetupScreen is currently configuring
+let localSelectedLevel = "medium";
+let soloState = null;   // { remaining: [numbers], total }
+let local2p = null;     // { p1: {...}, p2: {...}, total, level }
+
 // -------------------- Helpers --------------------
 function showScreen(screen) {
-  [lobbyScreen, waitingScreen, gameScreen].forEach(s => s.classList.add("hidden"));
+  [lobbyScreen, waitingScreen, localSetupScreen, gameScreen].forEach(s => s.classList.add("hidden"));
   finishedOverlay.classList.add("hidden");
   screen.classList.remove("hidden");
 }
@@ -127,6 +152,106 @@ levelButtons.forEach(btn => {
     btn.classList.add("active");
     selectedLevel = btn.dataset.level;
     updateMaxHint();
+  });
+});
+
+// -------------------- Local (solo / same-device) board generation --------------------
+// Mirrors server/server.js exactly (DIFFICULTY, buildScatterPositions) so
+// solo and same-device games look and play identically to online ones,
+// just without a server round-trip.
+
+const LOCAL_DIFFICULTY = {
+  medium: { fontMin: 16, fontMax: 26, opacityMin: 0.55, opacityMax: 0.9, rotationRange: 9 },
+  hard:   { fontMin: 10, fontMax: 15, opacityMin: 0.22, opacityMax: 0.48, rotationRange: 32 }
+};
+
+function localShuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function buildLocalScatterPositions(count, level) {
+  if (count === 0) return [];
+  const baseSpacing = level === "hard" ? 13 : 17;
+  const minDist = Math.max(2.2, baseSpacing / Math.sqrt(count));
+  const cellSize = minDist;
+  const grid = new Map();
+
+  function cellKey(cx, cy) { return cx + "," + cy; }
+  function hasNeighbor(x, y) {
+    const cx = Math.floor(x / cellSize), cy = Math.floor(y / cellSize);
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const bucket = grid.get(cellKey(cx + dx, cy + dy));
+        if (!bucket) continue;
+        for (const p of bucket) {
+          const ddx = p.x - x, ddy = p.y - y;
+          if (ddx * ddx + ddy * ddy < minDist * minDist) return true;
+        }
+      }
+    }
+    return false;
+  }
+  function addPoint(x, y) {
+    const key = cellKey(Math.floor(x / cellSize), Math.floor(y / cellSize));
+    if (!grid.has(key)) grid.set(key, []);
+    grid.get(key).push({ x, y });
+  }
+
+  const positions = [];
+  for (let i = 0; i < count; i++) {
+    let x, y, found = false;
+    for (let attempt = 0; attempt < 20; attempt++) {
+      x = 4 + Math.random() * 92;
+      y = 5 + Math.random() * 90;
+      if (!hasNeighbor(x, y)) { found = true; break; }
+    }
+    if (!found) { x = 4 + Math.random() * 92; y = 5 + Math.random() * 90; }
+    positions.push({ x, y });
+    addPoint(x, y);
+  }
+  return positions;
+}
+
+// Builds a board array (same shape renderBoard() already expects) for a
+// single page — used to give each player their own independent set of
+// numbers confined to their own side, in same-device mode. Solo mode
+// calls this once per page with half the numbers each, same as the
+// server does for online play.
+function buildLocalPageBoard(nums, page, level) {
+  const settings = LOCAL_DIFFICULTY[level] || LOCAL_DIFFICULTY.medium;
+  const positions = buildLocalScatterPositions(nums.length, level);
+  return nums.map((num, i) => {
+    const pos = positions[i];
+    return {
+      number: num,
+      page,
+      x: pos.x,
+      y: pos.y,
+      fontSize: Math.floor(Math.random() * (settings.fontMax - settings.fontMin)) + settings.fontMin,
+      rotation: Math.floor(Math.random() * (settings.rotationRange * 2 + 1)) - settings.rotationRange,
+      opacity: settings.opacityMin + Math.random() * (settings.opacityMax - settings.opacityMin)
+    };
+  });
+}
+
+function updateLocalMaxHint() {
+  const cap = localSelectedLevel === "hard" ? 300 : 400;
+  localMaxNumberInput.max = cap;
+  localMaxHint.textContent = `Up to ${cap} numbers on ${localSelectedLevel === "hard" ? "Hard" : "Medium"}`;
+  if (parseInt(localMaxNumberInput.value) > cap) localMaxNumberInput.value = cap;
+}
+updateLocalMaxHint();
+
+localLevelButtons.forEach(btn => {
+  btn.addEventListener("click", () => {
+    localLevelButtons.forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    localSelectedLevel = btn.dataset.level;
+    updateLocalMaxHint();
   });
 });
 
@@ -324,15 +449,19 @@ function showCelebration(number) {
   setTimeout(() => el.remove(), 950);
 }
 
-function handleWrongClick(element) {
+function handleWrongClick(element, targetEl = targetNumberElement) {
   playWrongSound();
   element.classList.add("wrong");
-  targetNumberElement.classList.add("shake");
+  targetEl.classList.add("shake");
   setTimeout(() => element.classList.remove("wrong"), 300);
-  setTimeout(() => targetNumberElement.classList.remove("shake"), 300);
+  setTimeout(() => targetEl.classList.remove("shake"), 300);
 }
 
 function onNumberClick(number, element) {
+  if (gameMode === "solo") return onSoloNumberClick(number, element);
+  if (gameMode === "local2p") return onLocal2PNumberClick(number, element);
+
+  // online (default)
   if (claimingLock || !currentTarget) return;
   if (number !== currentTarget) {
     handleWrongClick(element);
@@ -344,11 +473,66 @@ function onNumberClick(number, element) {
   });
 }
 
+function onSoloNumberClick(number, element) {
+  if (!soloState || element.classList.contains("found")) return;
+  if (number !== currentTarget) {
+    handleWrongClick(element);
+    return;
+  }
+  element.classList.add("found");
+  soloState.remaining = soloState.remaining.filter(n => n !== number);
+  foundCountElement.textContent = soloState.total - soloState.remaining.length;
+  playFoundSound();
+  const rect = element.getBoundingClientRect();
+  spawnConfetti(rect.left + rect.width / 2, rect.top + rect.height / 2);
+
+  if (soloState.remaining.length === 0) {
+    finishSolo();
+    return;
+  }
+  setTarget(pickRandom(soloState.remaining));
+}
+
+function onLocal2PNumberClick(number, element) {
+  if (!local2p || element.classList.contains("found")) return;
+
+  const isLeft = element.closest(".left-page") !== null;
+  const side = isLeft ? "p1" : "p2";
+  const state = local2p[side];
+  const targetEl = side === "p1" ? targetP1El : targetP2El;
+
+  if (number !== state.target) {
+    handleWrongClick(element, targetEl);
+    return;
+  }
+
+  element.classList.add("found");
+  state.remaining = state.remaining.filter(n => n !== number);
+  state.score++;
+
+  const scoreEl = side === "p1" ? scoreValueP1 : scoreValueP2;
+  scoreEl.textContent = state.score;
+
+  playFoundSound();
+  const rect = element.getBoundingClientRect();
+  spawnConfetti(rect.left + rect.width / 2, rect.top + rect.height / 2);
+
+  if (state.remaining.length === 0) {
+    finishLocal2P(side);
+    return;
+  }
+
+  state.target = pickRandom(state.remaining);
+  targetEl.textContent = `FIND ${state.target}`;
+}
+
 function resetToLobby() {
   roomCode = "";
   myId = null;
   currentRoom = null;
   isHost = false;
+  gameMode = "online";
+  topBarEl.classList.remove("local2p");
   showScreen(lobbyScreen);
 }
 
@@ -440,7 +624,111 @@ socket.on("game_over", (room) => {
   finishedOverlay.classList.remove("hidden");
 });
 
-// -------------------- Lobby actions --------------------
+// -------------------- Local mode lobby actions --------------------
+soloBtn.addEventListener("click", () => {
+  pendingLocalMode = "solo";
+  localSetupTitle.textContent = "Solo Practice";
+  showScreen(localSetupScreen);
+});
+
+passPlayBtn.addEventListener("click", () => {
+  pendingLocalMode = "local2p";
+  localSetupTitle.textContent = "2 Players — Same Device";
+  showScreen(localSetupScreen);
+});
+
+localBackBtn.addEventListener("click", () => {
+  showScreen(lobbyScreen);
+});
+
+localStartBtn.addEventListener("click", () => {
+  const total = Math.max(10, parseInt(localMaxNumberInput.value) || 50);
+  initAudio();
+  if (pendingLocalMode === "solo") {
+    startSolo(total, localSelectedLevel);
+  } else {
+    startLocal2P(total, localSelectedLevel);
+  }
+});
+
+// -------------------- Solo mode --------------------
+function startSolo(total, level) {
+  gameMode = "solo";
+  topBarEl.classList.remove("local2p");
+
+  const numbers = localShuffle(Array.from({ length: total }, (_, i) => i + 1));
+  const leftNums = numbers.filter((_, i) => i % 2 === 0);
+  const rightNums = numbers.filter((_, i) => i % 2 === 1);
+  const board = [
+    ...buildLocalPageBoard(leftNums, "left", level),
+    ...buildLocalPageBoard(rightNums, "right", level)
+  ];
+
+  soloState = { remaining: [...numbers], total };
+
+  totalCountElement.textContent = total;
+  foundCountElement.textContent = 0;
+  renderBoard(board);
+  setTarget(pickRandom(soloState.remaining));
+  showScreen(gameScreen);
+}
+
+function finishSolo() {
+  playFinishSound();
+  spawnFinishConfetti();
+  winnerTitle.textContent = "Finished!";
+  finalScores.textContent = `You found all ${soloState.total} numbers`;
+  if (playAgainBtn) playAgainBtn.style.display = "inline-block";
+  finishedOverlay.classList.remove("hidden");
+}
+
+// -------------------- Same-device 2-player mode --------------------
+function startLocal2P(total, level) {
+  gameMode = "local2p";
+  topBarEl.classList.add("local2p");
+
+  const p1Nums = localShuffle(Array.from({ length: total }, (_, i) => i + 1));
+  const p2Nums = localShuffle(Array.from({ length: total }, (_, i) => i + 1));
+  const board = [
+    ...buildLocalPageBoard(p1Nums, "left", level),
+    ...buildLocalPageBoard(p2Nums, "right", level)
+  ];
+
+  local2p = {
+    total,
+    p1: { remaining: [...p1Nums], score: 0, target: null },
+    p2: { remaining: [...p2Nums], score: 0, target: null }
+  };
+
+  nameP1.textContent = "Player 1";
+  nameP2.textContent = "Player 2";
+  scoreValueP1.textContent = 0;
+  scoreValueP2.textContent = 0;
+
+  renderBoard(board);
+
+  local2p.p1.target = pickRandom(local2p.p1.remaining);
+  local2p.p2.target = pickRandom(local2p.p2.remaining);
+  targetP1El.textContent = `FIND ${local2p.p1.target}`;
+  targetP2El.textContent = `FIND ${local2p.p2.target}`;
+
+  showScreen(gameScreen);
+}
+
+function finishLocal2P(winnerSide) {
+  playFinishSound();
+  spawnFinishConfetti();
+  const label = winnerSide === "p1" ? "Player 1" : "Player 2";
+  winnerTitle.textContent = `${label} wins!`;
+  finalScores.textContent = `Player 1: ${local2p.p1.score}   —   Player 2: ${local2p.p2.score}`;
+  if (playAgainBtn) playAgainBtn.style.display = "inline-block";
+  finishedOverlay.classList.remove("hidden");
+}
+
+function pickRandom(arr) {
+  if (!arr.length) return null;
+  return arr[Math.floor(Math.random() * arr.length)];
+}
 createRoomBtn.addEventListener("click", () => {
   myName = playerNameInput.value.trim() || "Player";
   if (!myName) return setLobbyError("Enter your name first");
@@ -512,6 +800,14 @@ leaveRoomBtn.addEventListener("click", () => {
 });
 
 playAgainBtn?.addEventListener("click", () => {
+  if (gameMode === "solo") {
+    startSolo(soloState.total, localSelectedLevel);
+    return;
+  }
+  if (gameMode === "local2p") {
+    startLocal2P(local2p.total, localSelectedLevel);
+    return;
+  }
   if (!isHost || !roomCode) return;
   playAgainBtn.disabled = true;
   playAgainBtn.textContent = "Restarting...";
@@ -523,6 +819,10 @@ playAgainBtn?.addEventListener("click", () => {
 });
 
 backLobbyBtn?.addEventListener("click", () => {
+  if (gameMode === "solo" || gameMode === "local2p") {
+    resetToLobby();
+    return;
+  }
   if (roomCode) socket.emit("leave_room", { code: roomCode });
   history.replaceState(null, "", window.location.pathname);
   resetToLobby();
