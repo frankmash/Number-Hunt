@@ -1,6 +1,6 @@
-/* ========================================================
+/* =========================================================
    Number Hunt — Multiplayer Client (Socket.IO) v2
-   ======================================================== */
+   ========================================================= */
 
 const SERVER_URL = "https://number-hunt-87ss.onrender.com/";  
 
@@ -553,4 +553,268 @@ function resetToLobby() {
   myId = null;
   currentRoom = null;
   isHost = false;
-  gameMode =
+  gameMode = "online";
+  showScreen(lobbyScreen);
+}
+
+// -------------------- Socket events --------------------
+socket.on("connect", () => {
+  console.log("Connected");
+  showBanner("Connected to server", "success");
+});
+
+socket.on("disconnect", () => {
+  showBanner("Disconnected — trying to reconnect…", "warn");
+});
+
+socket.on("connect_error", () => {
+  setLobbyError("Cannot reach server. It may be waking up (Render free tier)…");
+  showBanner("Server is waking up, please wait 20–40 seconds…", "warn");
+});
+
+socket.on("room_updated", (room) => updatePlayersUI(room));
+
+socket.on("player_left", ({ playerName, room }) => {
+  showBanner(`${playerName} left the room`, "warn");
+  updatePlayersUI(room);
+
+  if (room.players.length < 2 && room.status === "playing") {
+    // force back if mid-game
+    setTimeout(() => {
+      showBanner("Game cancelled — opponent left", "warn");
+      resetToLobby();
+    }, 1800);
+  }
+});
+
+socket.on("game_started", (room) => {
+  initAudio();
+  currentRoom = room;
+  roomCode = room.code;
+  scoresBlockEl.style.display = "";
+  totalCountElement.textContent = room.totalNumbers;
+  foundCountElement.textContent = 0;
+  updateScoresUI(room);
+  renderBoard(room.board);
+  setTarget(room.currentTarget);
+  showScreen(gameScreen);
+  finishedOverlay.classList.add("hidden");
+});
+
+socket.on("number_claimed", ({ number, playerId, playerName, room }) => {
+  currentRoom = room;
+  const el = document.querySelector(`.number[data-number="${number}"]`);
+  if (el) {
+    el.classList.add("found");
+    if (playerId === myId) {
+      el.classList.add("claimed-by-me");
+      playFoundSound();
+      const rect = el.getBoundingClientRect();
+      spawnConfetti(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      showToast("You got it!", false);
+    } else {
+      el.classList.add("claimed-by-opp");
+      playOpponentSound();
+      showToast(`${playerName} found it!`, true);
+    }
+  }
+  foundCountElement.textContent = room.foundCount;
+  updateScoresUI(room);
+  setTarget(room.currentTarget);
+});
+
+socket.on("game_over", (room) => {
+  currentRoom = room;
+  playFinishSound();
+  spawnFinishConfetti();
+
+  const p1 = room.players[0];
+  const p2 = room.players[1];
+  let title = "It's a draw!";
+  if (p1 && p2) {
+    if (p1.score > p2.score) title = `${p1.name} wins!`;
+    if (p2.score > p1.score) title = `${p2.name} wins!`;
+  }
+
+  winnerTitle.textContent = title;
+  finalScores.textContent = `${p1?.name || "P1"}: ${p1?.score || 0}   —   ${p2?.name || "P2"}: ${p2?.score || 0}`;
+
+  // show Play Again only for host
+  if (playAgainBtn) {
+    playAgainBtn.style.display = isHost ? "inline-block" : "none";
+  }
+  finishedOverlay.classList.remove("hidden");
+});
+
+// -------------------- Local mode lobby actions --------------------
+soloBtn.addEventListener("click", () => {
+  pendingLocalMode = "solo";
+  localSetupTitle.textContent = "Solo Practice";
+  showScreen(localSetupScreen);
+});
+
+passPlayBtn.addEventListener("click", () => {
+  pendingLocalMode = "shared";
+  localSetupTitle.textContent = "2 Players — Same Device";
+  showScreen(localSetupScreen);
+});
+
+localBackBtn.addEventListener("click", () => {
+  goBackToLobby();
+});
+
+localStartBtn.addEventListener("click", () => {
+  const total = Math.max(10, parseInt(localMaxNumberInput.value) || 50);
+  initAudio();
+  startLocalGame(total, localSelectedLevel, pendingLocalMode === "shared");
+});
+
+// -------------------- Local engine (Solo + same-device 2P) --------------------
+// One shared board, one shared target — identical to the online
+// mechanic, just running client-side. `shared` distinguishes only
+// the finish-screen copy: same-device play doesn't track individual
+// scores (the app has no way to know which player's finger tapped),
+// so the two players keep their own tally.
+function startLocalGame(total, level, shared) {
+  gameMode = "local";
+  scoresBlockEl.style.display = "none";
+
+  const numbers = localShuffle(Array.from({ length: total }, (_, i) => i + 1));
+  const leftNums = numbers.filter((_, i) => i % 2 === 0);
+  const rightNums = numbers.filter((_, i) => i % 2 === 1);
+  const board = [
+    ...buildLocalPageBoard(leftNums, "left", level),
+    ...buildLocalPageBoard(rightNums, "right", level)
+  ];
+
+  soloState = { remaining: [...numbers], total, shared };
+
+  totalCountElement.textContent = total;
+  foundCountElement.textContent = 0;
+  renderBoard(board);
+  setTarget(pickRandom(soloState.remaining));
+  showScreen(gameScreen);
+}
+
+function finishSolo() {
+  playFinishSound();
+  spawnFinishConfetti();
+  if (soloState.shared) {
+    winnerTitle.textContent = "All found!";
+    finalScores.textContent = `${soloState.total} numbers found — compare your tallies`;
+  } else {
+    winnerTitle.textContent = "Finished!";
+    finalScores.textContent = `You found all ${soloState.total} numbers`;
+  }
+  if (playAgainBtn) playAgainBtn.style.display = "inline-block";
+  finishedOverlay.classList.remove("hidden");
+}
+
+function pickRandom(arr) {
+  if (!arr.length) return null;
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+createRoomBtn.addEventListener("click", () => {
+  myName = playerNameInput.value.trim() || "Player";
+  if (!myName) return setLobbyError("Enter your name first");
+  clearLobbyError();
+  createRoomBtn.disabled = true;
+  createRoomBtn.textContent = "Creating...";
+
+  socket.emit("create_room", { playerName: myName }, (res) => {
+    createRoomBtn.disabled = false;
+    createRoomBtn.textContent = "Create Room";
+    if (res.error) return setLobbyError(res.error);
+
+    myId = res.playerId;
+    roomCode = res.room.code;
+    displayRoomCode.textContent = roomCode;
+    updatePlayersUI(res.room);
+    showScreen(waitingScreen);
+
+    // update URL for easy sharing
+    const url = new URL(window.location);
+    url.searchParams.set("room", roomCode);
+    history.replaceState(null, "", url);
+  });
+});
+
+joinRoomBtn.addEventListener("click", () => {
+  myName = playerNameInput.value.trim() || "Player";
+  const code = roomCodeInput.value.trim().toUpperCase();
+  if (!myName) return setLobbyError("Enter your name first");
+  if (code.length < 4) return setLobbyError("Enter a valid room code");
+  clearLobbyError();
+  joinRoomBtn.disabled = true;
+  joinRoomBtn.textContent = "...";
+
+  socket.emit("join_room", { code, playerName: myName }, (res) => {
+    joinRoomBtn.disabled = false;
+    joinRoomBtn.textContent = "Join";
+    if (res.error) return setLobbyError(res.error);
+
+    myId = res.playerId;
+    roomCode = res.room.code;
+    displayRoomCode.textContent = roomCode;
+    updatePlayersUI(res.room);
+    showScreen(waitingScreen);
+  });
+});
+
+startGameBtn.addEventListener("click", () => {
+  if (!isHost) return;
+  const total = parseInt(maxNumberInput.value) || 50;
+  startGameBtn.disabled = true;
+  startGameBtn.textContent = "Starting...";
+
+  socket.emit("start_game", {
+    code: roomCode,
+    level: selectedLevel,
+    totalNumbers: total
+  }, (res) => {
+    startGameBtn.disabled = false;
+    startGameBtn.textContent = "Start Game";
+    if (res?.error) alert(res.error);
+  });
+});
+
+leaveRoomBtn.addEventListener("click", () => {
+  history.replaceState(null, "", window.location.pathname);
+  goBackToLobby();
+});
+
+playAgainBtn?.addEventListener("click", () => {
+  if (gameMode === "local") {
+    startLocalGame(soloState.total, localSelectedLevel, soloState.shared);
+    return;
+  }
+  if (!isHost || !roomCode) return;
+  playAgainBtn.disabled = true;
+  playAgainBtn.textContent = "Restarting...";
+  socket.emit("play_again", { code: roomCode }, (res) => {
+    playAgainBtn.disabled = false;
+    playAgainBtn.textContent = "Play Again";
+    if (res?.error) alert(res.error);
+  });
+});
+
+backLobbyBtn?.addEventListener("click", () => {
+  history.replaceState(null, "", window.location.pathname);
+  goBackToLobby();
+});
+
+// Auto-join from URL ?room=ABC12
+window.addEventListener("load", () => {
+  const params = new URLSearchParams(window.location.search);
+  const roomFromUrl = params.get("room");
+  if (roomFromUrl) {
+    roomCodeInput.value = roomFromUrl.toUpperCase();
+  }
+});
+
+playerNameInput.addEventListener("keydown", e => {
+  if (e.key === "Enter") createRoomBtn.click();
+});
+roomCodeInput.addEventListener("keydown", e => {
+  if (e.key === "Enter") joinRoomBtn.click();
+});
